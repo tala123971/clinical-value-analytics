@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: bronze
+    catalog: workspace
+    schema: default
+    tables:
+      - name: bronze_alerts
+      - name: bronze_patients
+      - name: bronze_hospitals

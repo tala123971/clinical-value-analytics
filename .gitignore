@@ -1,6 +1,32 @@
+# Python
 .venv/
+venv/
 __pycache__/
-*.pyc
+*.py[cod]
+
+# Environment / secrets
 .env
-.DS_Store
+.env.*
+!.env.example
+
+# dbt
+target/
+logs/
+dbt_packages/
+packages.yml.lock
+profiles.yml
+
+# Databricks local files
+.databricks/
+.databricks-connect/
+
+# IDE
+.vscode/
+.idea/
+
+# Jupyter
 .ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
