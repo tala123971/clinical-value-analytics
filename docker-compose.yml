@@ -1,0 +1,103 @@
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: Dockerfile
+
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+
+    AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
+
+    # Shared JWT secret - must be identical across all Airflow components
+    AIRFLOW__API_AUTH__JWT_SECRET: "${AIRFLOW_JWT_SECRET}"
+
+    AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW_FERNET_KEY}"
+
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: "http://airflow-apiserver:8080/execution/"
+
+  volumes:
+    - ${AIRFLOW_PROJ_DIR:-.}/airflow/dags:/opt/airflow/dags
+    - ${AIRFLOW_PROJ_DIR:-.}/airflow/logs:/opt/airflow/logs
+    - ${AIRFLOW_PROJ_DIR:-.}/airflow/plugins:/opt/airflow/plugins
+    - ${AIRFLOW_PROJ_DIR:-.}/airflow/config:/opt/airflow/config
+    - ${AIRFLOW_PROJ_DIR:-.}/dbt_clinical_value:/opt/airflow/dbt_clinical_value
+
+  user: "${AIRFLOW_UID:-50000}:0"
+
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+
+services:
+
+  postgres:
+    image: postgres:16
+
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+
+
+  airflow-apiserver:
+    <<: *airflow-common
+
+    command: api-server
+
+    ports:
+      - "8080:8080"
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "--fail",
+          "http://localhost:8080/api/v2/monitor/health"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+
+  airflow-scheduler:
+    <<: *airflow-common
+
+    command: scheduler
+
+
+  airflow-dag-processor:
+    <<: *airflow-common
+
+    command: dag-processor
+
+
+  airflow-init:
+    <<: *airflow-common
+
+    entrypoint: /bin/bash
+
+    command:
+      - -c
+      - |
+        airflow db migrate
+
+    restart: "no"
+
+
+volumes:
+  postgres-db-volume:
+
